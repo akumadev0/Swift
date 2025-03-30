@@ -10,12 +10,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2, XCircle, ArrowRight, RotateCcw, Eye, EyeOff } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getRandomWords, getRandomSentences } from "@/lib/quiz-data"
-import { getRandomCustomWords, getRandomCustomSentences } from "@/lib/custom-database"
+import { pobierzLosoweWlasneSlowa, pobierzLosoweWlasneZdania } from "@/lib/custom-database"
 import { ExitQuizDialog } from "@/components/exit-dialog"
 import { saveQuizResult } from "@/lib/quiz-storage"
 
-// Define a type for our combined quiz items
-type QuizItem = {
+type ElementQuizu = {
   type: "word" | "sentence"
   germanText: string
   polishText: string
@@ -27,208 +26,204 @@ type QuizItem = {
 export default function CombinedQuiz() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const wordCount = Number.parseInt(searchParams?.get("wordCount") || "10")
-  const sentenceCount = Number.parseInt(searchParams?.get("sentenceCount") || "5")
-  const direction = searchParams?.get("direction") || "de-to-pl"
-  const useCustomDatabase = searchParams?.get("custom") === "1"
-  const isGermanToPolish = direction === "de-to-pl"
+  const iloscSlow = Number.parseInt(searchParams?.get("wordCount") || "10")
+  const iloscZdan = Number.parseInt(searchParams?.get("sentenceCount") || "5")
+  const kierunek = searchParams?.get("direction") || "de-to-pl"
+  const uzyjWlasnejBazy = searchParams?.get("custom") === "1"
+  const czyNiemieckiDoPolskiego = kierunek === "de-to-pl"
 
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [userAnswer, setUserAnswer] = useState("")
-  const [isAnswered, setIsAnswered] = useState(false)
-  const [isCorrect, setIsCorrect] = useState(false)
-  const [score, setScore] = useState(0)
-  const [questions, setQuestions] = useState<QuizItem[]>([])
-  const [quizCompleted, setQuizCompleted] = useState(false)
-  const [showAnswer, setShowAnswer] = useState(false)
-  const [startTime, setStartTime] = useState<number | null>(null)
-  const [endTime, setEndTime] = useState<number | null>(null)
+  const [indeksPytania, setIndeksPytania] = useState(0)
+  const [odpowiedzUzytkownika, setOdpowiedzUzytkownika] = useState("")
+  const [czyOdpowiedziano, setCzyOdpowiedziano] = useState(false)
+  const [czyPoprawnie, setCzyPoprawnie] = useState(false)
+  const [wynik, setWynik] = useState(0)
+  const [pytania, setPytania] = useState<ElementQuizu[]>([])
+  const [quizZakonczony, setQuizZakonczony] = useState(false)
+  const [pokazOdpowiedz, setPokazOdpowiedz] = useState(false)
+  const [czasStartu, setCzasStartu] = useState<number | null>(null)
+  const [czasKonca, setCzasKonca] = useState<number | null>(null)
 
   useEffect(() => {
-    // Get random words and sentences based on database selection
-    let words
-    let sentences
+    let slowa
+    let zdania
 
-    if (useCustomDatabase) {
-      words = getRandomCustomWords(wordCount).map((word) => ({
+    if (uzyjWlasnejBazy) {
+      slowa = pobierzLosoweWlasneSlowa(iloscSlow).map((slowo) => ({
         type: "word" as const,
-        germanText: word.germanWord,
-        polishText: word.polishTranslation,
-        id: word.id,
-        category: word.category,
-        difficulty: word.difficulty,
+        germanText: slowo.germanWord,
+        polishText: slowo.polishTranslation,
+        id: slowo.id,
+        category: slowo.category,
+        difficulty: slowo.difficulty,
       }))
 
-      sentences = getRandomCustomSentences(sentenceCount).map((sentence) => ({
+      zdania = pobierzLosoweWlasneZdania(iloscZdan).map((zdanie) => ({
         type: "sentence" as const,
-        germanText: sentence.germanSentence,
-        polishText: sentence.polishTranslation,
-        id: sentence.id,
-        category: sentence.category,
-        difficulty: sentence.difficulty,
+        germanText: zdanie.germanSentence,
+        polishText: zdanie.polishTranslation,
+        id: zdanie.id,
+        category: zdanie.category,
+        difficulty: zdanie.difficulty,
       }))
     } else {
-      words = getRandomWords(wordCount).map((word) => ({
+      slowa = getRandomWords(iloscSlow).map((slowo) => ({
         type: "word" as const,
-        germanText: word.germanWord,
-        polishText: word.polishTranslation,
-        id: word.id,
-        category: word.category,
-        difficulty: word.difficulty,
+        germanText: slowo.germanWord,
+        polishText: slowo.polishTranslation,
+        id: slowo.id,
+        category: slowo.category,
+        difficulty: slowo.difficulty,
       }))
 
-      sentences = getRandomSentences(sentenceCount).map((sentence) => ({
+      zdania = getRandomSentences(iloscZdan).map((zdanie) => ({
         type: "sentence" as const,
-        germanText: sentence.germanSentence,
-        polishText: sentence.polishTranslation,
-        id: sentence.id,
-        category: sentence.category,
-        difficulty: sentence.difficulty,
+        germanText: zdanie.germanSentence,
+        polishText: zdanie.polishTranslation,
+        id: zdanie.id,
+        category: zdanie.category,
+        difficulty: zdanie.difficulty,
       }))
     }
 
-    // Combine and shuffle
-    const combined = [...words, ...sentences].sort(() => 0.5 - Math.random())
-    setQuestions(combined)
-    // Start the timer when quiz begins
-    setStartTime(Date.now())
-  }, [wordCount, sentenceCount, useCustomDatabase])
+    const polaczone = [...slowa, ...zdania].sort(() => 0.5 - Math.random())
+    setPytania(polaczone)
+    setCzasStartu(Date.now())
+  }, [iloscSlow, iloscZdan, uzyjWlasnejBazy])
 
-  const currentQuestion = questions[currentQuestionIndex]
+  const aktualnePytanie = pytania[indeksPytania]
 
-  const checkAnswer = () => {
-    if (!userAnswer.trim()) return
+  const sprawdzOdpowiedz = () => {
+    if (!odpowiedzUzytkownika.trim()) return
 
-    let correct = false
+    let poprawna = false
 
-    if (currentQuestion?.type === "word") {
-      // For words, require exact match (case insensitive)
-      if (isGermanToPolish) {
-        correct = userAnswer.toLowerCase().trim() === currentQuestion.polishText.toLowerCase().trim()
+    if (aktualnePytanie?.type === "word") {
+      if (czyNiemieckiDoPolskiego) {
+        poprawna = odpowiedzUzytkownika.toLowerCase().trim() === aktualnePytanie.polishText.toLowerCase().trim()
       } else {
-        correct = userAnswer.toLowerCase().trim() === currentQuestion.germanText.toLowerCase().trim()
+        poprawna = odpowiedzUzytkownika.toLowerCase().trim() === aktualnePytanie.germanText.toLowerCase().trim()
       }
     } else {
-      // For sentences, use the more flexible matching
-      const userAnswerLower = userAnswer.toLowerCase().trim()
-      const correctAnswerLower = isGermanToPolish
-        ? currentQuestion?.polishText.toLowerCase()
-        : currentQuestion?.germanText.toLowerCase()
+      const odpowiedzMala = odpowiedzUzytkownika.toLowerCase().trim()
+      const poprawnaOdpowiedzMala = czyNiemieckiDoPolskiego
+        ? aktualnePytanie?.polishText.toLowerCase()
+        : aktualnePytanie?.germanText.toLowerCase()
 
-      // Check if the answer contains at least 60% of the words in the correct translation
-      const correctWords = correctAnswerLower.split(/\s+/)
-      const userWords = userAnswerLower.split(/\s+/)
+      const poprawneSlowa = poprawnaOdpowiedzMala.split(/\s+/)
+      const slowaUzytkownika = odpowiedzMala.split(/\s+/)
 
-      let matchCount = 0
-      correctWords.forEach((word) => {
-        if (userWords.some((userWord) => userWord === word || userWord.includes(word) || word.includes(userWord))) {
-          matchCount++
+      let liczbaDopasowan = 0
+      poprawneSlowa.forEach((slowo) => {
+        if (
+          slowaUzytkownika.some(
+            (slowoUzytkownika) =>
+              slowoUzytkownika === slowo || slowoUzytkownika.includes(slowo) || slowo.includes(slowoUzytkownika),
+          )
+        ) {
+          liczbaDopasowan++
         }
       })
 
-      const matchPercentage = (matchCount / correctWords.length) * 100
-      correct = matchPercentage >= 60
+      const procentDopasowania = (liczbaDopasowan / poprawneSlowa.length) * 100
+      poprawna = procentDopasowania >= 60
     }
 
-    setIsCorrect(correct)
-    setIsAnswered(true)
+    setCzyPoprawnie(poprawna)
+    setCzyOdpowiedziano(true)
 
-    if (correct) {
-      setScore(score + 1)
+    if (poprawna) {
+      setWynik(wynik + 1)
     }
   }
 
-  const nextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1)
-      setUserAnswer("")
-      setIsAnswered(false)
-      setShowAnswer(false)
+  const nastepnePytanie = () => {
+    if (indeksPytania < pytania.length - 1) {
+      setIndeksPytania(indeksPytania + 1)
+      setOdpowiedzUzytkownika("")
+      setCzyOdpowiedziano(false)
+      setPokazOdpowiedz(false)
     } else {
-      setQuizCompleted(true)
-      setEndTime(Date.now())
+      setQuizZakonczony(true)
+      setCzasKonca(Date.now())
     }
   }
 
-  const restartQuiz = () => {
-    // Recreate the quiz with new random questions
-    let words
-    let sentences
+  const restartujQuiz = () => {
+    let slowa
+    let zdania
 
-    if (useCustomDatabase) {
-      words = getRandomCustomWords(wordCount).map((word) => ({
+    if (uzyjWlasnejBazy) {
+      slowa = pobierzLosoweWlasneSlowa(iloscSlow).map((slowo) => ({
         type: "word" as const,
-        germanText: word.germanWord,
-        polishText: word.polishTranslation,
-        id: word.id,
-        category: word.category,
-        difficulty: word.difficulty,
+        germanText: slowo.germanWord,
+        polishText: slowo.polishTranslation,
+        id: slowo.id,
+        category: slowo.category,
+        difficulty: slowo.difficulty,
       }))
 
-      sentences = getRandomCustomSentences(sentenceCount).map((sentence) => ({
+      zdania = pobierzLosoweWlasneZdania(iloscZdan).map((zdanie) => ({
         type: "sentence" as const,
-        germanText: sentence.germanSentence,
-        polishText: sentence.polishTranslation,
-        id: sentence.id,
-        category: sentence.category,
-        difficulty: sentence.difficulty,
+        germanText: zdanie.germanSentence,
+        polishText: zdanie.polishTranslation,
+        id: zdanie.id,
+        category: zdanie.category,
+        difficulty: zdanie.difficulty,
       }))
     } else {
-      words = getRandomWords(wordCount).map((word) => ({
+      slowa = getRandomWords(iloscSlow).map((slowo) => ({
         type: "word" as const,
-        germanText: word.germanWord,
-        polishText: word.polishTranslation,
-        id: word.id,
-        category: word.category,
-        difficulty: word.difficulty,
+        germanText: slowo.germanWord,
+        polishText: slowo.polishTranslation,
+        id: slowo.id,
+        category: slowo.category,
+        difficulty: slowo.difficulty,
       }))
 
-      sentences = getRandomSentences(sentenceCount).map((sentence) => ({
+      zdania = getRandomSentences(iloscZdan).map((zdanie) => ({
         type: "sentence" as const,
-        germanText: sentence.germanSentence,
-        polishText: sentence.polishTranslation,
-        id: sentence.id,
-        category: sentence.category,
-        difficulty: sentence.difficulty,
+        germanText: zdanie.germanSentence,
+        polishText: zdanie.polishTranslation,
+        id: zdanie.id,
+        category: zdanie.category,
+        difficulty: zdanie.difficulty,
       }))
     }
 
-    // Combine and shuffle
-    const combined = [...words, ...sentences].sort(() => 0.5 - Math.random())
-    setQuestions(combined)
+    const polaczone = [...slowa, ...zdania].sort(() => 0.5 - Math.random())
+    setPytania(polaczone)
 
-    setCurrentQuestionIndex(0)
-    setUserAnswer("")
-    setIsAnswered(false)
-    setIsCorrect(false)
-    setScore(0)
-    setQuizCompleted(false)
-    setShowAnswer(false)
-    setStartTime(Date.now())
-    setEndTime(null)
+    setIndeksPytania(0)
+    setOdpowiedzUzytkownika("")
+    setCzyOdpowiedziano(false)
+    setCzyPoprawnie(false)
+    setWynik(0)
+    setQuizZakonczony(false)
+    setPokazOdpowiedz(false)
+    setCzasStartu(Date.now())
+    setCzasKonca(null)
   }
 
-  // Save quiz results to localStorage when completed
   useEffect(() => {
-    if (quizCompleted && startTime && endTime) {
-      const duration = Math.round((endTime - startTime) / 1000) // in seconds
+    if (quizZakonczony && czasStartu && czasKonca) {
+      const czas = Math.round((czasKonca - czasStartu) / 1000)
 
       saveQuizResult({
         type: "combined",
-        direction: direction as "de-to-pl" | "pl-to-de",
-        score,
-        total: questions.length,
-        percentage: Math.round((score / questions.length) * 100),
-        duration,
+        direction: kierunek as "de-to-pl" | "pl-to-de",
+        score: wynik,
+        total: pytania.length,
+        percentage: Math.round((wynik / pytania.length) * 100),
+        duration: czas,
       })
     }
-  }, [quizCompleted, startTime, endTime, score, questions.length, direction])
+  }, [quizZakonczony, czasStartu, czasKonca, wynik, pytania.length, kierunek])
 
-  if (questions.length === 0) {
+  if (pytania.length === 0) {
     return <div className="flex justify-center items-center min-h-[50vh]">Ładowanie quizu...</div>
   }
 
-  if (quizCompleted) {
+  if (quizZakonczony) {
     return (
       <div className="container max-w-md mx-auto py-10 px-4">
         <Card>
@@ -237,18 +232,18 @@ export default function CombinedQuiz() {
           </CardHeader>
           <CardContent className="text-center">
             <div className="text-6xl font-bold mb-4">
-              {score}/{questions.length}
+              {wynik}/{pytania.length}
             </div>
-            <Progress value={(score / questions.length) * 100} className="h-3 mb-6" />
+            <Progress value={(wynik / pytania.length) * 100} className="h-3 mb-6" />
             <p className="mb-6">
-              {score === questions.length
+              {wynik === pytania.length
                 ? "Doskonale! Opanowałeś zarówno słowa, jak i zdania!"
-                : score > questions.length / 2
+                : wynik > pytania.length / 2
                   ? "Dobra robota! Kontynuuj ćwiczenia, aby dalej się doskonalić."
                   : "Kontynuuj ćwiczenia, aby poprawić swoje umiejętności języka niemieckiego."}
             </p>
             <div className="flex gap-4 justify-center">
-              <Button onClick={restartQuiz} className="gap-2">
+              <Button onClick={restartujQuiz} className="gap-2">
                 <RotateCcw className="h-4 w-4" />
                 Rozpocznij ponownie
               </Button>
@@ -262,25 +257,24 @@ export default function CombinedQuiz() {
     )
   }
 
-  // Determine what to display and what to ask for based on direction
-  const displayText = isGermanToPolish ? currentQuestion?.germanText : currentQuestion?.polishText
+  const wyswietlanyTekst = czyNiemieckiDoPolskiego ? aktualnePytanie?.germanText : aktualnePytanie?.polishText
 
-  const correctAnswer = isGermanToPolish ? currentQuestion?.polishText : currentQuestion?.germanText
+  const poprawnaOdpowiedz = czyNiemieckiDoPolskiego ? aktualnePytanie?.polishText : aktualnePytanie?.germanText
 
-  const placeholderText = isGermanToPolish ? "Wpisz polskie tłumaczenie..." : "Wpisz niemieckie tłumaczenie..."
+  const tekstPlaceholder = czyNiemieckiDoPolskiego ? "Wpisz polskie tłumaczenie..." : "Wpisz niemieckie tłumaczenie..."
 
   return (
     <div className="container max-w-md mx-auto py-10 px-4">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium">
-            Pytanie {currentQuestionIndex + 1} z {questions.length}
+            Pytanie {indeksPytania + 1} z {pytania.length}
           </span>
           <span className="text-sm font-medium">
-            Wynik: {score}/{currentQuestionIndex}
+            Wynik: {wynik}/{indeksPytania}
           </span>
         </div>
-        <Progress value={(currentQuestionIndex / questions.length) * 100} className="h-2" />
+        <Progress value={(indeksPytania / pytania.length) * 100} className="h-2" />
         <div className="flex justify-end mt-2">
           <ExitQuizDialog />
         </div>
@@ -290,70 +284,75 @@ export default function CombinedQuiz() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <span className="text-xs font-medium px-2 py-1 bg-muted rounded-full">
-              {currentQuestion?.type === "word" ? "Słowo" : "Zdanie"}
+              {aktualnePytanie?.type === "word" ? "Słowo" : "Zdanie"}
             </span>
             <span className="text-xs font-medium px-2 py-1 bg-muted rounded-full">
-              {isGermanToPolish ? "Niemiecki → Polski" : "Polski → Niemiecki"}
+              {czyNiemieckiDoPolskiego ? "Niemiecki → Polski" : "Polski → Niemiecki"}
             </span>
             <span className="text-xs font-medium px-2 py-1 bg-muted rounded-full">
-              {currentQuestion?.difficulty === "easy"
+              {aktualnePytanie?.difficulty === "easy"
                 ? "łatwy"
-                : currentQuestion?.difficulty === "medium"
+                : aktualnePytanie?.difficulty === "medium"
                   ? "średni"
                   : "trudny"}
             </span>
           </div>
-          <CardTitle className="text-center text-xl mt-2">{displayText}</CardTitle>
+          <CardTitle className="text-center text-xl mt-2">{wyswietlanyTekst}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {currentQuestion?.type === "word" ? (
+          {aktualnePytanie?.type === "word" ? (
             <Input
               type="text"
-              placeholder={placeholderText}
-              value={userAnswer}
-              onChange={(e) => setUserAnswer(e.target.value)}
+              placeholder={tekstPlaceholder}
+              value={odpowiedzUzytkownika}
+              onChange={(e) => setOdpowiedzUzytkownika(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !isAnswered) {
-                  checkAnswer()
+                if (e.key === "Enter" && !czyOdpowiedziano) {
+                  sprawdzOdpowiedz()
                 }
               }}
-              disabled={isAnswered}
+              disabled={czyOdpowiedziano}
               className="w-full"
             />
           ) : (
             <Textarea
-              placeholder={placeholderText}
-              value={userAnswer}
-              onChange={(e) => setUserAnswer(e.target.value)}
-              disabled={isAnswered}
+              placeholder={tekstPlaceholder}
+              value={odpowiedzUzytkownika}
+              onChange={(e) => setOdpowiedzUzytkownika(e.target.value)}
+              disabled={czyOdpowiedziano}
               className="min-h-[100px]"
             />
           )}
 
-          {isAnswered && (
+          {czyOdpowiedziano && (
             <div className="mt-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="font-medium">Poprawna odpowiedź:</span>
-                <Button variant="ghost" size="sm" onClick={() => setShowAnswer(!showAnswer)} className="h-8 px-2">
-                  {showAnswer ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-                  {showAnswer ? "Ukryj" : "Pokaż"}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPokazOdpowiedz(!pokazOdpowiedz)}
+                  className="h-8 px-2"
+                >
+                  {pokazOdpowiedz ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+                  {pokazOdpowiedz ? "Ukryj" : "Pokaż"}
                 </Button>
               </div>
-              {showAnswer && <div className="p-3 bg-muted rounded-md">{correctAnswer}</div>}
+              {pokazOdpowiedz && <div className="p-3 bg-muted rounded-md">{poprawnaOdpowiedz}</div>}
             </div>
           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          {isAnswered && (
+          {czyOdpowiedziano && (
             <Alert
               className={
-                isCorrect
+                czyPoprawnie
                   ? "bg-green-50 dark:bg-green-950/20 border-green-200"
                   : "bg-red-50 dark:bg-red-950/20 border-red-200"
               }
             >
               <AlertDescription className="flex items-center gap-2">
-                {isCorrect ? (
+                {czyPoprawnie ? (
                   <>
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
                     <span>Poprawnie! Świetna robota.</span>
@@ -369,13 +368,13 @@ export default function CombinedQuiz() {
           )}
 
           <div className="flex w-full justify-between">
-            {!isAnswered ? (
-              <Button onClick={checkAnswer} disabled={!userAnswer.trim()} className="w-full">
+            {!czyOdpowiedziano ? (
+              <Button onClick={sprawdzOdpowiedz} disabled={!odpowiedzUzytkownika.trim()} className="w-full">
                 Sprawdź odpowiedź
               </Button>
             ) : (
-              <Button onClick={nextQuestion} className="w-full gap-1">
-                {currentQuestionIndex < questions.length - 1 ? "Następne" : "Zobacz wyniki"}
+              <Button onClick={nastepnePytanie} className="w-full gap-1">
+                {indeksPytania < pytania.length - 1 ? "Następne" : "Zobacz wyniki"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}

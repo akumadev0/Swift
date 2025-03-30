@@ -1,84 +1,71 @@
-// Custom database context using localStorage
 import type { WordItem, SentenceItem } from "./quiz-data"
 
-// Database interface
-export interface CustomDatabase {
+export interface WlasnaBaza {
   words: WordItem[]
   sentences: SentenceItem[]
   name: string
   author: string
   description: string
   dateCreated: string
+  language?: "de" | "en" // Add language field
 }
 
-// Check if custom database is uploaded
-export function hasCustomDatabase(): boolean {
+export function czyIstniejeWlasnaBaza(): boolean {
   if (typeof window === "undefined") return false
   return localStorage.getItem("customQuizDatabase") !== null
 }
 
-// Get custom database
-export function getCustomDatabase(): CustomDatabase | null {
+export function pobierzWlasnaBaze(): WlasnaBaza | null {
   if (typeof window === "undefined") return null
 
-  const storedData = localStorage.getItem("customQuizDatabase")
-  if (!storedData) return null
+  const zapisaneDane = localStorage.getItem("customQuizDatabase")
+  if (!zapisaneDane) return null
 
   try {
-    return JSON.parse(storedData) as CustomDatabase
+    return JSON.parse(zapisaneDane) as WlasnaBaza
   } catch (error) {
-    console.error("Error parsing custom database:", error)
+    console.error("Błąd parsowania własnej bazy:", error)
     return null
   }
 }
 
-// Save custom database
-export function saveCustomDatabase(database: CustomDatabase): void {
+export function zapiszWlasnaBaze(baza: WlasnaBaza): void {
   if (typeof window === "undefined") return
-  localStorage.setItem("customQuizDatabase", JSON.stringify(database))
+  localStorage.setItem("customQuizDatabase", JSON.stringify(baza))
 }
 
-// Clear custom database
-export function clearCustomDatabase(): void {
+export function usunWlasnaBaze(): void {
   if (typeof window === "undefined") return
   localStorage.removeItem("customQuizDatabase")
 }
 
-// Get custom words
-export function getCustomWords(): WordItem[] {
-  const database = getCustomDatabase()
-  return database?.words || []
+export function pobierzWlasneSlowa(): WordItem[] {
+  const baza = pobierzWlasnaBaze()
+  return baza?.words || []
 }
 
-// Get custom sentences
-export function getCustomSentences(): SentenceItem[] {
-  const database = getCustomDatabase()
-  return database?.sentences || []
+export function pobierzWlasneZdania(): SentenceItem[] {
+  const baza = pobierzWlasnaBaze()
+  return baza?.sentences || []
 }
 
-// Get random words from custom database
-export function getRandomCustomWords(count: number): WordItem[] {
-  const words = getCustomWords()
-  if (words.length === 0) return []
+export function pobierzLosoweWlasneSlowa(ilosc: number): WordItem[] {
+  const slowa = pobierzWlasneSlowa()
+  if (slowa.length === 0) return []
 
-  // If requested count is greater than available words, return all words
-  if (count >= words.length) return [...words]
+  if (ilosc >= slowa.length) return [...slowa]
 
-  // Otherwise, shuffle and return requested count
-  const shuffled = [...words].sort(() => 0.5 - Math.random())
-  return shuffled.slice(0, count)
+  const pomieszane = [...slowa].sort(() => 0.5 - Math.random())
+  return pomieszane.slice(0, ilosc)
 }
 
-// Get random sentences from custom database
-export function getRandomCustomSentences(count: number): SentenceItem[] {
-  const sentences = getCustomSentences()
-  if (sentences.length === 0) return []
+export function pobierzLosoweWlasneZdania(ilosc: number): SentenceItem[] {
+  const zdania = pobierzWlasneZdania()
+  if (zdania.length === 0) return []
 
-  // If requested count is greater than available sentences, return all sentences
-  if (count >= sentences.length) return [...sentences]
+  if (ilosc >= zdania.length) return [...zdania]
 
-  // Otherwise, shuffle and return requested count
-  const shuffled = [...sentences].sort(() => 0.5 - Math.random())
-  return shuffled.slice(0, count)
+  const pomieszane = [...zdania].sort(() => 0.5 - Math.random())
+  return pomieszane.slice(0, ilosc)
 }
 

@@ -24,356 +24,442 @@ import {
 } from "@/components/ui/dialog"
 import type { WordItem, SentenceItem } from "@/lib/quiz-data"
 
-// Type for combined quiz items
-type QuizDatabase = {
+// Update the BazaDanych type to include language information
+type BazaDanych = {
   words: WordItem[]
   sentences: SentenceItem[]
   name: string
   author: string
   description: string
   dateCreated: string
+  language?: "de" | "en"
 }
 
-// Type for the item being edited
-type EditingItem = {
+type EdytowanyElement = {
   type: "word" | "sentence"
   index: number
 } | null
 
 export default function CreatorPage() {
-  // Database metadata
-  const [databaseName, setDatabaseName] = useState("Moja baza quizów")
-  const [databaseAuthor, setDatabaseAuthor] = useState("")
-  const [databaseDescription, setDatabaseDescription] = useState("")
+  // Add language selection at the top of the component
+  const [wybranyJezyk, setWybranyJezyk] = useState<"de" | "en">("de")
 
-  // Words collection
-  const [words, setWords] = useState<WordItem[]>([])
-  const [newWord, setNewWord] = useState<Partial<WordItem>>({
+  const [nazwaBazy, setNazwaBazy] = useState("Moja baza quizów")
+  const [autorBazy, setAutorBazy] = useState("")
+  const [opisBazy, setOpisBazy] = useState("")
+
+  const [slowa, setSlowa] = useState<WordItem[]>([])
+  const [noweSlowo, setNoweSlowo] = useState<Partial<WordItem>>({
     germanWord: "",
     polishTranslation: "",
+    englishTranslation: "",
     category: "nouns",
     difficulty: "easy",
   })
 
-  // Sentences collection
-  const [sentences, setSentences] = useState<SentenceItem[]>([])
-  const [newSentence, setNewSentence] = useState<Partial<SentenceItem>>({
+  const [zdania, setZdania] = useState<SentenceItem[]>([])
+  const [noweZdanie, setNoweZdanie] = useState<Partial<SentenceItem>>({
     germanSentence: "",
     polishTranslation: "",
+    englishTranslation: "",
     category: "daily life",
     difficulty: "easy",
   })
 
-  // UI state
-  const [activeTab, setActiveTab] = useState("words")
-  const [editingItem, setEditingItem] = useState<EditingItem>(null)
-  const [showConfirmReset, setShowConfirmReset] = useState(false)
-  const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [aktywnaZakladka, setAktywnaZakladka] = useState("words")
+  const [edytowanyElement, setEdytowanyElement] = useState<EdytowanyElement>(null)
+  const [pokazPotwierdzenie, setPokazPotwierdzenie] = useState(false)
+  const [komunikat, setKomunikat] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
-  // Add new word to collection
-  const addWord = () => {
-    if (!newWord.germanWord || !newWord.polishTranslation) {
-      setStatusMessage({
+  // Update the validation in dodajSlowo function
+  const dodajSlowo = () => {
+    if (wybranyJezyk === "de" && (!noweSlowo.germanWord || !noweSlowo.polishTranslation)) {
+      setKomunikat({
         type: "error",
         message: "Słowo niemieckie i tłumaczenie polskie są wymagane.",
       })
       return
     }
 
-    const wordItem: WordItem = {
-      id: Date.now(),
-      germanWord: newWord.germanWord!,
-      polishTranslation: newWord.polishTranslation!,
-      category: newWord.category || "nouns",
-      difficulty: (newWord.difficulty as "easy" | "medium" | "hard") || "easy",
+    if (wybranyJezyk === "en" && (!noweSlowo.englishTranslation || !noweSlowo.polishTranslation)) {
+      setKomunikat({
+        type: "error",
+        message: "Słowo angielskie i tłumaczenie polskie są wymagane.",
+      })
+      return
     }
 
-    setWords([...words, wordItem])
-    setNewWord({
+    const elementSlowo: WordItem = {
+      id: Date.now(),
+      germanWord: wybranyJezyk === "de" ? noweSlowo.germanWord! : "",
+      polishTranslation: noweSlowo.polishTranslation!,
+      englishTranslation: wybranyJezyk === "en" ? noweSlowo.englishTranslation! : "",
+      category: noweSlowo.category || "nouns",
+      difficulty: (noweSlowo.difficulty as "easy" | "medium" | "hard") || "easy",
+    }
+
+    setSlowa([...slowa, elementSlowo])
+    setNoweSlowo({
       germanWord: "",
       polishTranslation: "",
-      category: newWord.category,
-      difficulty: newWord.difficulty,
+      englishTranslation: "",
+      category: noweSlowo.category,
+      difficulty: noweSlowo.difficulty,
     })
 
-    setStatusMessage({
+    setKomunikat({
       type: "success",
-      message: `Dodano słowo: ${wordItem.germanWord}`,
+      message: `Dodano słowo: ${wybranyJezyk === "de" ? elementSlowo.germanWord : elementSlowo.englishTranslation}`,
     })
 
-    setTimeout(() => setStatusMessage(null), 3000)
+    setTimeout(() => setKomunikat(null), 3000)
   }
 
-  // Add new sentence to collection
-  const addSentence = () => {
-    if (!newSentence.germanSentence || !newSentence.polishTranslation) {
-      setStatusMessage({
+  // Update the validation in dodajZdanie function
+  const dodajZdanie = () => {
+    if (wybranyJezyk === "de" && (!noweZdanie.germanSentence || !noweZdanie.polishTranslation)) {
+      setKomunikat({
         type: "error",
         message: "Zdanie niemieckie i tłumaczenie polskie są wymagane.",
       })
       return
     }
 
-    const sentenceItem: SentenceItem = {
-      id: Date.now(),
-      germanSentence: newSentence.germanSentence!,
-      polishTranslation: newSentence.polishTranslation!,
-      category: newSentence.category || "daily life",
-      difficulty: (newSentence.difficulty as "easy" | "medium" | "hard") || "easy",
+    if (wybranyJezyk === "en" && (!noweZdanie.englishTranslation || !noweZdanie.polishTranslation)) {
+      setKomunikat({
+        type: "error",
+        message: "Zdanie angielskie i tłumaczenie polskie są wymagane.",
+      })
+      return
     }
 
-    setSentences([...sentences, sentenceItem])
-    setNewSentence({
+    const elementZdanie: SentenceItem = {
+      id: Date.now(),
+      germanSentence: wybranyJezyk === "de" ? noweZdanie.germanSentence! : "",
+      polishTranslation: noweZdanie.polishTranslation!,
+      englishTranslation: wybranyJezyk === "en" ? noweZdanie.englishTranslation! : "",
+      category: noweZdanie.category || "daily life",
+      difficulty: (noweZdanie.difficulty as "easy" | "medium" | "hard") || "easy",
+    }
+
+    setZdania([...zdania, elementZdanie])
+    setNoweZdanie({
       germanSentence: "",
       polishTranslation: "",
-      category: newSentence.category,
-      difficulty: newSentence.difficulty,
+      englishTranslation: "",
+      category: noweZdanie.category,
+      difficulty: noweZdanie.difficulty,
     })
 
-    setStatusMessage({
+    setKomunikat({
       type: "success",
       message: "Dodano nowe zdanie",
     })
 
-    setTimeout(() => setStatusMessage(null), 3000)
+    setTimeout(() => setKomunikat(null), 3000)
   }
 
-  // Delete word from collection
-  const deleteWord = (index: number) => {
-    const updatedWords = [...words]
-    updatedWords.splice(index, 1)
-    setWords(updatedWords)
+  const usunSlowo = (indeks: number) => {
+    const zaktualizowaneSlowa = [...slowa]
+    zaktualizowaneSlowa.splice(indeks, 1)
+    setSlowa(zaktualizowaneSlowa)
   }
 
-  // Delete sentence from collection
-  const deleteSentence = (index: number) => {
-    const updatedSentences = [...sentences]
-    updatedSentences.splice(index, 1)
-    setSentences(updatedSentences)
+  const usunZdanie = (indeks: number) => {
+    const zaktualizowaneZdania = [...zdania]
+    zaktualizowaneZdania.splice(indeks, 1)
+    setZdania(zaktualizowaneZdania)
   }
 
-  // Start editing a word
-  const startEditingWord = (index: number) => {
-    setEditingItem({ type: "word", index })
-    setNewWord({
-      germanWord: words[index].germanWord,
-      polishTranslation: words[index].polishTranslation,
-      category: words[index].category,
-      difficulty: words[index].difficulty,
-    })
-    setActiveTab("words")
+  // Update rozpocznijEdycjeSlowa to handle the selected language
+  const rozpocznijEdycjeSlowa = (indeks: number) => {
+    setEdytowanyElement({ type: "word", index: indeks })
+    if (wybranyJezyk === "de") {
+      setNoweSlowo({
+        germanWord: slowa[indeks].germanWord,
+        polishTranslation: slowa[indeks].polishTranslation,
+        englishTranslation: "",
+        category: slowa[indeks].category,
+        difficulty: slowa[indeks].difficulty,
+      })
+    } else {
+      setNoweSlowo({
+        germanWord: "",
+        polishTranslation: slowa[indeks].polishTranslation,
+        englishTranslation: slowa[indeks].englishTranslation,
+        category: slowa[indeks].category,
+        difficulty: slowa[indeks].difficulty,
+      })
+    }
+    setAktywnaZakladka("words")
   }
 
-  // Start editing a sentence
-  const startEditingSentence = (index: number) => {
-    setEditingItem({ type: "sentence", index })
-    setNewSentence({
-      germanSentence: sentences[index].germanSentence,
-      polishTranslation: sentences[index].polishTranslation,
-      category: sentences[index].category,
-      difficulty: sentences[index].difficulty,
-    })
-    setActiveTab("sentences")
+  // Update rozpocznijEdycjeZdania to handle the selected language
+  const rozpocznijEdycjeZdania = (indeks: number) => {
+    setEdytowanyElement({ type: "sentence", index: indeks })
+    if (wybranyJezyk === "de") {
+      setNoweZdanie({
+        germanSentence: zdania[indeks].germanSentence,
+        polishTranslation: zdania[indeks].polishTranslation,
+        englishTranslation: "",
+        category: zdania[indeks].category,
+        difficulty: zdania[indeks].difficulty,
+      })
+    } else {
+      setNoweZdanie({
+        germanSentence: "",
+        polishTranslation: zdania[indeks].polishTranslation,
+        englishTranslation: zdania[indeks].englishTranslation,
+        category: zdania[indeks].category,
+        difficulty: zdania[indeks].difficulty,
+      })
+    }
+    setAktywnaZakladka("sentences")
   }
 
-  // Save edited item
-  const saveEditedItem = () => {
-    if (editingItem?.type === "word") {
-      if (!newWord.germanWord || !newWord.polishTranslation) {
-        setStatusMessage({
+  // Update the zapiszEdytowanyElement function
+  const zapiszEdytowanyElement = () => {
+    if (edytowanyElement?.type === "word") {
+      if (wybranyJezyk === "de" && (!noweSlowo.germanWord || !noweSlowo.polishTranslation)) {
+        setKomunikat({
           type: "error",
           message: "Słowo niemieckie i tłumaczenie polskie są wymagane.",
         })
         return
       }
 
-      const updatedWords = [...words]
-      updatedWords[editingItem.index] = {
-        ...updatedWords[editingItem.index],
-        germanWord: newWord.germanWord!,
-        polishTranslation: newWord.polishTranslation!,
-        category: newWord.category || "nouns",
-        difficulty: (newWord.difficulty as "easy" | "medium" | "hard") || "easy",
+      if (wybranyJezyk === "en" && (!noweSlowo.englishTranslation || !noweSlowo.polishTranslation)) {
+        setKomunikat({
+          type: "error",
+          message: "Słowo angielskie i tłumaczenie polskie są wymagane.",
+        })
+        return
       }
-      setWords(updatedWords)
-    } else if (editingItem?.type === "sentence") {
-      if (!newSentence.germanSentence || !newSentence.polishTranslation) {
-        setStatusMessage({
+
+      const zaktualizowaneSlowa = [...slowa]
+      zaktualizowaneSlowa[edytowanyElement.index] = {
+        ...zaktualizowaneSlowa[edytowanyElement.index],
+        germanWord:
+          wybranyJezyk === "de" ? noweSlowo.germanWord! : zaktualizowaneSlowa[edytowanyElement.index].germanWord,
+        polishTranslation: noweSlowo.polishTranslation!,
+        englishTranslation:
+          wybranyJezyk === "en"
+            ? noweSlowo.englishTranslation!
+            : zaktualizowaneSlowa[edytowanyElement.index].englishTranslation,
+        category: noweSlowo.category || "nouns",
+        difficulty: (noweSlowo.difficulty as "easy" | "medium" | "hard") || "easy",
+      }
+      setSlowa(zaktualizowaneSlowa)
+    } else if (edytowanyElement?.type === "sentence") {
+      if (wybranyJezyk === "de" && (!noweZdanie.germanSentence || !noweZdanie.polishTranslation)) {
+        setKomunikat({
           type: "error",
           message: "Zdanie niemieckie i tłumaczenie polskie są wymagane.",
         })
         return
       }
 
-      const updatedSentences = [...sentences]
-      updatedSentences[editingItem.index] = {
-        ...updatedSentences[editingItem.index],
-        germanSentence: newSentence.germanSentence!,
-        polishTranslation: newSentence.polishTranslation!,
-        category: newSentence.category || "daily life",
-        difficulty: (newSentence.difficulty as "easy" | "medium" | "hard") || "easy",
+      if (wybranyJezyk === "en" && (!noweZdanie.englishTranslation || !noweZdanie.polishTranslation)) {
+        setKomunikat({
+          type: "error",
+          message: "Zdanie angielskie i tłumaczenie polskie są wymagane.",
+        })
+        return
       }
-      setSentences(updatedSentences)
+
+      const zaktualizowaneZdania = [...zdania]
+      zaktualizowaneZdania[edytowanyElement.index] = {
+        ...zaktualizowaneZdania[edytowanyElement.index],
+        germanSentence:
+          wybranyJezyk === "de"
+            ? noweZdanie.germanSentence!
+            : zaktualizowaneZdania[edytowanyElement.index].germanSentence,
+        polishTranslation: noweZdanie.polishTranslation!,
+        englishTranslation:
+          wybranyJezyk === "en"
+            ? noweZdanie.englishTranslation!
+            : zaktualizowaneZdania[edytowanyElement.index].englishTranslation,
+        category: noweZdanie.category || "daily life",
+        difficulty: (noweZdanie.difficulty as "easy" | "medium" | "hard") || "easy",
+      }
+      setZdania(zaktualizowaneZdania)
     }
 
-    cancelEditing()
+    anulujEdycje()
 
-    setStatusMessage({
+    setKomunikat({
       type: "success",
       message: "Edycja zakończona pomyślnie",
     })
 
-    setTimeout(() => setStatusMessage(null), 3000)
+    setTimeout(() => setKomunikat(null), 3000)
   }
 
-  // Cancel editing
-  const cancelEditing = () => {
-    setEditingItem(null)
-    if (activeTab === "words") {
-      setNewWord({
+  // Update anulujEdycje to handle the selected language
+  const anulujEdycje = () => {
+    setEdytowanyElement(null)
+    if (aktywnaZakladka === "words") {
+      setNoweSlowo({
         germanWord: "",
         polishTranslation: "",
+        englishTranslation: "",
         category: "nouns",
         difficulty: "easy",
       })
     } else {
-      setNewSentence({
+      setNoweZdanie({
         germanSentence: "",
         polishTranslation: "",
+        englishTranslation: "",
         category: "daily life",
         difficulty: "easy",
       })
     }
   }
 
-  // Export database as JSON file
-  const exportDatabase = () => {
-    if (words.length === 0 && sentences.length === 0) {
-      setStatusMessage({
+  // Update the metadata in the exported database
+  const eksportujBaze = () => {
+    if (slowa.length === 0 && zdania.length === 0) {
+      setKomunikat({
         type: "error",
         message: "Baza danych jest pusta. Dodaj co najmniej jedno słowo lub zdanie.",
       })
       return
     }
 
-    const quizDatabase: QuizDatabase = {
-      words,
-      sentences,
-      name: databaseName || "Moja baza quizów",
-      author: databaseAuthor || "Nieznany",
-      description: databaseDescription || "",
+    const bazaDanych: BazaDanych = {
+      words: slowa,
+      sentences: zdania,
+      name: nazwaBazy || "Moja baza quizów",
+      author: autorBazy || "Nieznany",
+      description: opisBazy || "",
       dateCreated: new Date().toISOString(),
+      language: wybranyJezyk, // Add language information to the database
     }
 
-    const jsonString = JSON.stringify(quizDatabase, null, 2)
+    const jsonString = JSON.stringify(bazaDanych, null, 2)
     const blob = new Blob([jsonString], { type: "application/json" })
     const url = URL.createObjectURL(blob)
 
     const a = document.createElement("a")
     a.href = url
-    a.download = `${databaseName.toLowerCase().replace(/\s+/g, "-")}.json`
+    a.download = `${nazwaBazy.toLowerCase().replace(/\s+/g, "-")}-${wybranyJezyk}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    setStatusMessage({
+    setKomunikat({
       type: "success",
       message: "Baza danych została wyeksportowana pomyślnie",
     })
 
-    setTimeout(() => setStatusMessage(null), 3000)
+    setTimeout(() => setKomunikat(null), 3000)
   }
 
-  // Import database from JSON file
-  const importDatabase = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (!files || files.length === 0) return
+  // Update the import function to handle the language information
+  const importujBaze = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const pliki = event.target.files
+    if (!pliki || pliki.length === 0) return
 
-    const file = files[0]
-    const reader = new FileReader()
+    const plik = pliki[0]
+    const czytnik = new FileReader()
 
-    reader.onload = (e) => {
+    czytnik.onload = (e) => {
       try {
-        const content = e.target?.result as string
-        const imported = JSON.parse(content) as QuizDatabase
+        const zawartosc = e.target?.result as string
+        const zaimportowane = JSON.parse(zawartosc) as BazaDanych & { language?: "de" | "en" }
 
-        // Validate structure
         if (
-          !imported.words ||
-          !Array.isArray(imported.words) ||
-          !imported.sentences ||
-          !Array.isArray(imported.sentences)
+          !zaimportowane.words ||
+          !Array.isArray(zaimportowane.words) ||
+          !zaimportowane.sentences ||
+          !Array.isArray(zaimportowane.sentences)
         ) {
           throw new Error("Nieprawidłowy format pliku")
         }
 
-        // Confirm overwrite
-        if (window.confirm("Importowanie zastąpi wszystkie aktualne dane. Czy kontynuować?")) {
-          setWords(imported.words)
-          setSentences(imported.sentences)
-          setDatabaseName(imported.name || "Moja baza quizów")
-          setDatabaseAuthor(imported.author || "")
-          setDatabaseDescription(imported.description || "")
+        // Set the language based on the imported database
+        if (zaimportowane.language) {
+          setWybranyJezyk(zaimportowane.language)
+        } else {
+          // Try to detect language based on content
+          const hasGerman = zaimportowane.words.some((word) => word.germanWord && word.germanWord.trim() !== "")
+          const hasEnglish = zaimportowane.words.some(
+            (word) => word.englishTranslation && word.englishTranslation.trim() !== "",
+          )
 
-          setStatusMessage({
+          if (hasGerman && !hasEnglish) {
+            setWybranyJezyk("de")
+          } else if (hasEnglish && !hasGerman) {
+            setWybranyJezyk("en")
+          }
+          // If both or none, keep current selection
+        }
+
+        if (window.confirm("Importowanie zastąpi wszystkie aktualne dane. Czy kontynuować?")) {
+          setSlowa(zaimportowane.words)
+          setZdania(zaimportowane.sentences)
+          setNazwaBazy(zaimportowane.name || "Moja baza quizów")
+          setAutorBazy(zaimportowane.author || "")
+          setOpisBazy(zaimportowane.description || "")
+
+          setKomunikat({
             type: "success",
-            message: `Zaimportowano bazę danych: ${imported.words.length} słów i ${imported.sentences.length} zdań`,
+            message: `Zaimportowano bazę danych: ${zaimportowane.words.length} słów i ${zaimportowane.sentences.length} zdań`,
           })
         }
       } catch (error) {
         console.error(error)
-        setStatusMessage({
+        setKomunikat({
           type: "error",
           message: "Błąd importu. Sprawdź format pliku.",
         })
       }
     }
 
-    reader.readAsText(file)
+    czytnik.readAsText(plik)
 
-    // Clear the file input so the same file can be selected again
     event.target.value = ""
   }
 
-  // Reset the database
-  const resetDatabase = () => {
-    setWords([])
-    setSentences([])
-    setDatabaseName("Moja baza quizów")
-    setDatabaseAuthor("")
-    setDatabaseDescription("")
-    setShowConfirmReset(false)
+  const resetujBaze = () => {
+    setSlowa([])
+    setZdania([])
+    setNazwaBazy("Moja baza quizów")
+    setAutorBazy("")
+    setOpisBazy("")
+    setPokazPotwierdzenie(false)
 
-    setStatusMessage({
+    setKomunikat({
       type: "success",
       message: "Baza danych została zresetowana",
     })
 
-    setTimeout(() => setStatusMessage(null), 3000)
+    setTimeout(() => setKomunikat(null), 3000)
   }
 
   return (
     <div className="container max-w-6xl mx-auto py-10 px-4">
       <h1 className="text-3xl font-bold mb-2">Kreator bazy quizów</h1>
       <p className="text-muted-foreground mb-8">
-        Stwórz własną bazę słów i zdań do nauki niemieckiego. Możesz ją wyeksportować i wykorzystać w quizach.
+        Stwórz własną bazę słów i zdań do nauki języków. Możesz ją wyeksportować i wykorzystać w quizach.
       </p>
 
-      {/* Database metadata */}
+      {/* Update the card header section to include language selection */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Metadane bazy</CardTitle>
           <CardDescription>Podstawowe informacje o tworzonej bazie danych</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="databaseName">Nazwa bazy danych</Label>
               <Input
                 id="databaseName"
-                value={databaseName}
-                onChange={(e) => setDatabaseName(e.target.value)}
+                value={nazwaBazy}
+                onChange={(e) => setNazwaBazy(e.target.value)}
                 placeholder="Np. Słownictwo do egzaminu B1"
               />
             </div>
@@ -381,25 +467,42 @@ export default function CreatorPage() {
               <Label htmlFor="databaseAuthor">Autor</Label>
               <Input
                 id="databaseAuthor"
-                value={databaseAuthor}
-                onChange={(e) => setDatabaseAuthor(e.target.value)}
+                value={autorBazy}
+                onChange={(e) => setAutorBazy(e.target.value)}
                 placeholder="Twoje imię (opcjonalnie)"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="language-select">Język do nauki</Label>
+              <RadioGroup
+                value={wybranyJezyk}
+                onValueChange={(value: "de" | "en") => setWybranyJezyk(value)}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="de" id="german-lang" />
+                  <Label htmlFor="german-lang">Niemiecki</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="en" id="english-lang" />
+                  <Label htmlFor="english-lang">Angielski</Label>
+                </div>
+              </RadioGroup>
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="databaseDescription">Opis bazy danych</Label>
             <Textarea
               id="databaseDescription"
-              value={databaseDescription}
-              onChange={(e) => setDatabaseDescription(e.target.value)}
+              value={opisBazy}
+              onChange={(e) => setOpisBazy(e.target.value)}
               placeholder="Krótki opis zawartości bazy danych (opcjonalnie)"
             />
           </div>
         </CardContent>
         <CardFooter className="flex justify-between flex-wrap gap-2">
           <div className="flex gap-2">
-            <Button onClick={exportDatabase} className="gap-2" disabled={words.length === 0 && sentences.length === 0}>
+            <Button onClick={eksportujBaze} className="gap-2" disabled={slowa.length === 0 && zdania.length === 0}>
               <Download className="h-4 w-4" />
               Eksportuj bazę danych
             </Button>
@@ -411,11 +514,11 @@ export default function CreatorPage() {
                   Importuj bazę danych
                 </span>
               </Button>
-              <input id="import-json" type="file" accept=".json" className="sr-only" onChange={importDatabase} />
+              <input id="import-json" type="file" accept=".json" className="sr-only" onChange={importujBaze} />
             </label>
           </div>
 
-          <Dialog open={showConfirmReset} onOpenChange={setShowConfirmReset}>
+          <Dialog open={pokazPotwierdzenie} onOpenChange={setPokazPotwierdzenie}>
             <DialogTrigger asChild>
               <Button variant="destructive" className="gap-2">
                 <Trash2 className="h-4 w-4" />
@@ -430,10 +533,10 @@ export default function CreatorPage() {
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowConfirmReset(false)}>
+                <Button variant="outline" onClick={() => setPokazPotwierdzenie(false)}>
                   Anuluj
                 </Button>
-                <Button variant="destructive" onClick={resetDatabase}>
+                <Button variant="destructive" onClick={resetujBaze}>
                   Tak, resetuj bazę
                 </Button>
               </DialogFooter>
@@ -442,57 +545,61 @@ export default function CreatorPage() {
         </CardFooter>
       </Card>
 
-      {/* Status message */}
-      {statusMessage && (
+      {komunikat && (
         <Alert
-          className={`mb-4 ${statusMessage.type === "success" ? "bg-green-50 dark:bg-green-950/20 border-green-200" : "bg-red-50 dark:bg-red-950/20 border-red-200"}`}
+          className={`mb-4 ${komunikat.type === "success" ? "bg-green-50 dark:bg-green-950/20 border-green-200" : "bg-red-50 dark:bg-red-950/20 border-red-200"}`}
         >
-          <AlertCircle className={`h-4 w-4 ${statusMessage.type === "success" ? "text-green-500" : "text-red-500"}`} />
-          <AlertDescription>{statusMessage.message}</AlertDescription>
+          <AlertCircle className={`h-4 w-4 ${komunikat.type === "success" ? "text-green-500" : "text-red-500"}`} />
+          <AlertDescription>{komunikat.message}</AlertDescription>
         </Alert>
       )}
 
-      {/* Content tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={aktywnaZakladka} onValueChange={setAktywnaZakladka} className="space-y-4">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="words" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
-            Słowa ({words.length})
+            Słowa ({slowa.length})
           </TabsTrigger>
           <TabsTrigger value="sentences" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
-            Zdania ({sentences.length})
+            Zdania ({zdania.length})
           </TabsTrigger>
         </TabsList>
 
-        {/* Words tab */}
         <TabsContent value="words" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>{editingItem?.type === "word" ? "Edytuj słowo" : "Dodaj nowe słowo"}</CardTitle>
+              <CardTitle>{edytowanyElement?.type === "word" ? "Edytuj słowo" : "Dodaj nowe słowo"}</CardTitle>
               <CardDescription>
-                {editingItem?.type === "word"
+                {edytowanyElement?.type === "word"
                   ? "Edytuj istniejące słowo w bazie danych"
-                  : "Wprowadź słowo niemieckie i jego polskie tłumaczenie"}
+                  : "Wprowadź słowo niemieckie i jego tłumaczenia"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Update the word form to adapt based on selected language */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="germanWord">Słowo niemieckie</Label>
+                  <Label htmlFor="foreignWord">{wybranyJezyk === "de" ? "Słowo niemieckie" : "Słowo angielskie"}</Label>
                   <Input
-                    id="germanWord"
-                    value={newWord.germanWord || ""}
-                    onChange={(e) => setNewWord({ ...newWord, germanWord: e.target.value })}
-                    placeholder="Np. Haus"
+                    id="foreignWord"
+                    value={wybranyJezyk === "de" ? noweSlowo.germanWord || "" : noweSlowo.englishTranslation || ""}
+                    onChange={(e) => {
+                      if (wybranyJezyk === "de") {
+                        setNoweSlowo({ ...noweSlowo, germanWord: e.target.value, englishTranslation: "" })
+                      } else {
+                        setNoweSlowo({ ...noweSlowo, englishTranslation: e.target.value, germanWord: "" })
+                      }
+                    }}
+                    placeholder={wybranyJezyk === "de" ? "Np. Haus" : "Np. house"}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="polishWord">Tłumaczenie polskie</Label>
                   <Input
                     id="polishWord"
-                    value={newWord.polishTranslation || ""}
-                    onChange={(e) => setNewWord({ ...newWord, polishTranslation: e.target.value })}
+                    value={noweSlowo.polishTranslation || ""}
+                    onChange={(e) => setNoweSlowo({ ...noweSlowo, polishTranslation: e.target.value })}
                     placeholder="Np. dom"
                   />
                 </div>
@@ -503,17 +610,17 @@ export default function CreatorPage() {
                   <Label htmlFor="wordCategory">Kategoria</Label>
                   <Input
                     id="wordCategory"
-                    value={newWord.category || ""}
-                    onChange={(e) => setNewWord({ ...newWord, category: e.target.value })}
+                    value={noweSlowo.category || ""}
+                    onChange={(e) => setNoweSlowo({ ...noweSlowo, category: e.target.value })}
                     placeholder="Np. nouns"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Poziom trudności</Label>
                   <RadioGroup
-                    value={newWord.difficulty || "easy"}
+                    value={noweSlowo.difficulty || "easy"}
                     onValueChange={(value) =>
-                      setNewWord({ ...newWord, difficulty: value as "easy" | "medium" | "hard" })
+                      setNoweSlowo({ ...noweSlowo, difficulty: value as "easy" | "medium" | "hard" })
                     }
                     className="flex gap-4"
                   >
@@ -534,18 +641,18 @@ export default function CreatorPage() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
-              {editingItem?.type === "word" ? (
+              {edytowanyElement?.type === "word" ? (
                 <>
-                  <Button variant="outline" onClick={cancelEditing}>
+                  <Button variant="outline" onClick={anulujEdycje}>
                     Anuluj
                   </Button>
-                  <Button onClick={saveEditedItem} className="gap-2">
+                  <Button onClick={zapiszEdytowanyElement} className="gap-2">
                     <Save className="h-4 w-4" />
                     Zapisz zmiany
                   </Button>
                 </>
               ) : (
-                <Button onClick={addWord} className="gap-2">
+                <Button onClick={dodajSlowo} className="gap-2">
                   <Plus className="h-4 w-4" />
                   Dodaj słowo
                 </Button>
@@ -553,19 +660,19 @@ export default function CreatorPage() {
             </CardFooter>
           </Card>
 
-          {/* Words list */}
-          {words.length > 0 ? (
+          {/* Update the word list table to show only relevant languages */}
+          {slowa.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Lista słów ({words.length})</CardTitle>
+                <CardTitle>Lista słów ({slowa.length})</CardTitle>
                 <CardDescription>Wszystkie dodane słowa w bazie danych</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Niemiecki</TableHead>
+                        <TableHead>{wybranyJezyk === "de" ? "Niemiecki" : "Angielski"}</TableHead>
                         <TableHead>Polski</TableHead>
                         <TableHead>Kategoria</TableHead>
                         <TableHead>Trudność</TableHead>
@@ -573,26 +680,28 @@ export default function CreatorPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {words.map((word, index) => (
-                        <TableRow key={word.id}>
-                          <TableCell className="font-medium">{word.germanWord}</TableCell>
-                          <TableCell>{word.polishTranslation}</TableCell>
-                          <TableCell>{word.category}</TableCell>
+                      {slowa.map((slowo, indeks) => (
+                        <TableRow key={slowo.id}>
+                          <TableCell className="font-medium">
+                            {wybranyJezyk === "de" ? slowo.germanWord : slowo.englishTranslation}
+                          </TableCell>
+                          <TableCell>{slowo.polishTranslation}</TableCell>
+                          <TableCell>{slowo.category}</TableCell>
                           <TableCell>
                             <span className="px-2 py-1 rounded-full text-xs bg-muted">
-                              {word.difficulty === "easy"
+                              {slowo.difficulty === "easy"
                                 ? "łatwy"
-                                : word.difficulty === "medium"
+                                : slowo.difficulty === "medium"
                                   ? "średni"
                                   : "trudny"}
                             </span>
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => startEditingWord(index)}>
+                              <Button variant="ghost" size="icon" onClick={() => rozpocznijEdycjeSlowa(indeks)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => deleteWord(index)}>
+                              <Button variant="ghost" size="icon" onClick={() => usunSlowo(indeks)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
@@ -615,33 +724,41 @@ export default function CreatorPage() {
           )}
         </TabsContent>
 
-        {/* Sentences tab */}
         <TabsContent value="sentences" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>{editingItem?.type === "sentence" ? "Edytuj zdanie" : "Dodaj nowe zdanie"}</CardTitle>
+              <CardTitle>{edytowanyElement?.type === "sentence" ? "Edytuj zdanie" : "Dodaj nowe zdanie"}</CardTitle>
               <CardDescription>
-                {editingItem?.type === "sentence"
+                {edytowanyElement?.type === "sentence"
                   ? "Edytuj istniejące zdanie w bazie danych"
-                  : "Wprowadź zdanie niemieckie i jego polskie tłumaczenie"}
+                  : "Wprowadź zdanie niemieckie i jego tłumaczenia"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Update the sentence form to adapt based on selected language */}
               <div className="space-y-2">
-                <Label htmlFor="germanSentence">Zdanie niemieckie</Label>
+                <Label htmlFor="foreignSentence">
+                  {wybranyJezyk === "de" ? "Zdanie niemieckie" : "Zdanie angielskie"}
+                </Label>
                 <Textarea
-                  id="germanSentence"
-                  value={newSentence.germanSentence || ""}
-                  onChange={(e) => setNewSentence({ ...newSentence, germanSentence: e.target.value })}
-                  placeholder="Np. Ich gehe zur Schule."
+                  id="foreignSentence"
+                  value={wybranyJezyk === "de" ? noweZdanie.germanSentence || "" : noweZdanie.englishTranslation || ""}
+                  onChange={(e) => {
+                    if (wybranyJezyk === "de") {
+                      setNoweZdanie({ ...noweZdanie, germanSentence: e.target.value, englishTranslation: "" })
+                    } else {
+                      setNoweZdanie({ ...noweZdanie, englishTranslation: e.target.value, germanSentence: "" })
+                    }
+                  }}
+                  placeholder={wybranyJezyk === "de" ? "Np. Ich gehe zur Schule." : "Np. I am going to school."}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="polishSentence">Tłumaczenie polskie</Label>
                 <Textarea
                   id="polishSentence"
-                  value={newSentence.polishTranslation || ""}
-                  onChange={(e) => setNewSentence({ ...newSentence, polishTranslation: e.target.value })}
+                  value={noweZdanie.polishTranslation || ""}
+                  onChange={(e) => setNoweZdanie({ ...noweZdanie, polishTranslation: e.target.value })}
                   placeholder="Np. Idę do szkoły."
                 />
               </div>
@@ -651,17 +768,17 @@ export default function CreatorPage() {
                   <Label htmlFor="sentenceCategory">Kategoria</Label>
                   <Input
                     id="sentenceCategory"
-                    value={newSentence.category || ""}
-                    onChange={(e) => setNewSentence({ ...newSentence, category: e.target.value })}
+                    value={noweZdanie.category || ""}
+                    onChange={(e) => setNoweZdanie({ ...noweZdanie, category: e.target.value })}
                     placeholder="Np. daily life"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Poziom trudności</Label>
                   <RadioGroup
-                    value={newSentence.difficulty || "easy"}
+                    value={noweZdanie.difficulty || "easy"}
                     onValueChange={(value) =>
-                      setNewSentence({ ...newSentence, difficulty: value as "easy" | "medium" | "hard" })
+                      setNoweZdanie({ ...noweZdanie, difficulty: value as "easy" | "medium" | "hard" })
                     }
                     className="flex gap-4"
                   >
@@ -682,18 +799,18 @@ export default function CreatorPage() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
-              {editingItem?.type === "sentence" ? (
+              {edytowanyElement?.type === "sentence" ? (
                 <>
-                  <Button variant="outline" onClick={cancelEditing}>
+                  <Button variant="outline" onClick={anulujEdycje}>
                     Anuluj
                   </Button>
-                  <Button onClick={saveEditedItem} className="gap-2">
+                  <Button onClick={zapiszEdytowanyElement} className="gap-2">
                     <Save className="h-4 w-4" />
                     Zapisz zmiany
                   </Button>
                 </>
               ) : (
-                <Button onClick={addSentence} className="gap-2">
+                <Button onClick={dodajZdanie} className="gap-2">
                   <Plus className="h-4 w-4" />
                   Dodaj zdanie
                 </Button>
@@ -701,19 +818,19 @@ export default function CreatorPage() {
             </CardFooter>
           </Card>
 
-          {/* Sentences list */}
-          {sentences.length > 0 ? (
+          {/* Update the sentence list table to show only relevant languages */}
+          {zdania.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Lista zdań ({sentences.length})</CardTitle>
+                <CardTitle>Lista zdań ({zdania.length})</CardTitle>
                 <CardDescription>Wszystkie dodane zdania w bazie danych</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Niemiecki</TableHead>
+                        <TableHead>{wybranyJezyk === "de" ? "Niemiecki" : "Angielski"}</TableHead>
                         <TableHead>Polski</TableHead>
                         <TableHead>Kategoria</TableHead>
                         <TableHead>Trudność</TableHead>
@@ -721,26 +838,28 @@ export default function CreatorPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sentences.map((sentence, index) => (
-                        <TableRow key={sentence.id}>
-                          <TableCell className="font-medium max-w-xs truncate">{sentence.germanSentence}</TableCell>
-                          <TableCell className="max-w-xs truncate">{sentence.polishTranslation}</TableCell>
-                          <TableCell>{sentence.category}</TableCell>
+                      {zdania.map((zdanie, indeks) => (
+                        <TableRow key={zdanie.id}>
+                          <TableCell className="font-medium max-w-xs truncate">
+                            {wybranyJezyk === "de" ? zdanie.germanSentence : zdanie.englishTranslation}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">{zdanie.polishTranslation}</TableCell>
+                          <TableCell>{zdanie.category}</TableCell>
                           <TableCell>
                             <span className="px-2 py-1 rounded-full text-xs bg-muted">
-                              {sentence.difficulty === "easy"
+                              {zdanie.difficulty === "easy"
                                 ? "łatwy"
-                                : sentence.difficulty === "medium"
+                                : zdanie.difficulty === "medium"
                                   ? "średni"
                                   : "trudny"}
                             </span>
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => startEditingSentence(index)}>
+                              <Button variant="ghost" size="icon" onClick={() => rozpocznijEdycjeZdania(indeks)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => deleteSentence(index)}>
+                              <Button variant="ghost" size="icon" onClick={() => usunZdanie(indeks)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>

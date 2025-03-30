@@ -1,248 +1,329 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { germanWords, germanSentences, type WordItem, type SentenceItem } from "@/lib/quiz-data"
-import { Search, SortAsc, SortDesc, BookOpen, MessageSquare } from "lucide-react"
+import { Search, SortAsc, SortDesc, BookOpen, MessageSquare, CreditCard } from "lucide-react"
+import { Flashcards } from "@/components/flashcards"
+import {
+  czyIstniejeWlasnaBaza,
+  pobierzWlasneSlowa,
+  pobierzWlasneZdania,
+  pobierzWlasnaBaze,
+} from "@/lib/custom-database"
+import { motion } from "framer-motion"
 
 export default function LearnPage() {
-  // Words state
-  const [words, setWords] = useState<WordItem[]>([])
-  const [filteredWords, setFilteredWords] = useState<WordItem[]>([])
-  const [wordSearchQuery, setWordSearchQuery] = useState("")
-  const [wordSortField, setWordSortField] = useState<"germanWord" | "polishTranslation" | "category" | "difficulty">(
-    "germanWord",
-  )
-  const [wordSortDirection, setWordSortDirection] = useState<"asc" | "desc">("asc")
-  const [wordCategoryFilter, setWordCategoryFilter] = useState<string>("all")
+  const [slowa, setSlowa] = useState<WordItem[]>([])
+  const [przefiltrowaneSłowa, setPrzefiltrowaneSłowa] = useState<WordItem[]>([])
+  const [wyszukiwanieSlowa, setWyszukiwanieSlowa] = useState("")
+  const [sortowanieSlowa, setSortowanieSlowa] = useState<
+    "germanWord" | "polishTranslation" | "category" | "difficulty"
+  >("germanWord")
+  const [kierunekSortowaniaSlowa, setKierunekSortowaniaSlowa] = useState<"asc" | "desc">("asc")
+  const [kategoriaSlowa, setKategoriaSlowa] = useState<string>("all")
 
-  // Sentences state
-  const [sentences, setSentences] = useState<SentenceItem[]>([])
-  const [filteredSentences, setFilteredSentences] = useState<SentenceItem[]>([])
-  const [sentenceSearchQuery, setSentenceSearchQuery] = useState("")
-  const [sentenceSortField, setSentenceSortField] = useState<
+  const [zdania, setZdania] = useState<SentenceItem[]>([])
+  const [przefiltrowanZdania, setPrzefiltrowanZdania] = useState<SentenceItem[]>([])
+  const [wyszukiwanieZdania, setWyszukiwanieZdania] = useState("")
+  const [sortowanieZdania, setSortowanieZdania] = useState<
     "germanSentence" | "polishTranslation" | "category" | "difficulty"
   >("germanSentence")
-  const [sentenceSortDirection, setSentenceSortDirection] = useState<"asc" | "desc">("asc")
-  const [sentenceCategoryFilter, setSentenceCategoryFilter] = useState<string>("all")
+  const [kierunekSortowaniaZdania, setKierunekSortowaniaZdania] = useState<"asc" | "desc">("asc")
+  const [kategoriaZdania, setKategoriaZdania] = useState<string>("all")
 
-  // Get unique categories
-  const wordCategories = ["all", ...new Set(germanWords.map((word) => word.category))]
-  const sentenceCategories = ["all", ...new Set(germanSentences.map((sentence) => sentence.category))]
+  const [uzyjWlasnejBazy, setUzyjWlasnejBazy] = useState(false)
+  const [maSentences, setMaSentences] = useState(true)
+  const [jezykBazy, setJezykBazy] = useState<"de" | "en">("de")
 
   useEffect(() => {
-    setWords(germanWords)
-    setSentences(germanSentences)
-    setFilteredWords(germanWords)
-    setFilteredSentences(germanSentences)
+    const maWlasnaBaze = czyIstniejeWlasnaBaza()
+    setUzyjWlasnejBazy(maWlasnaBaze)
+
+    if (maWlasnaBaze) {
+      const wlasnaBaza = pobierzWlasnaBaze()
+      if (wlasnaBaza) {
+        setJezykBazy(wlasnaBaza.language || "de")
+        const wlasneSlowa = pobierzWlasneSlowa()
+        const wlasneZdania = pobierzWlasneZdania()
+
+        setSlowa(wlasneSlowa)
+        setZdania(wlasneZdania)
+        setPrzefiltrowaneSłowa(wlasneSlowa)
+        setPrzefiltrowanZdania(wlasneZdania)
+        setMaSentences(wlasneZdania.length > 0)
+      }
+    } else {
+      setJezykBazy("de")
+      setSlowa(germanWords)
+      setZdania(germanSentences)
+      setPrzefiltrowaneSłowa(germanWords)
+      setPrzefiltrowanZdania(germanSentences)
+      setMaSentences(true)
+    }
   }, [])
 
-  // Filter and sort words
+  const kategorieSlowa = useMemo(
+    () => ["all", ...new Set((uzyjWlasnejBazy ? pobierzWlasneSlowa() : germanWords).map((word) => word.category))],
+    [uzyjWlasnejBazy],
+  )
+
+  const kategorieZdania = useMemo(
+    () => [
+      "all",
+      ...new Set((uzyjWlasnejBazy ? pobierzWlasneZdania() : germanSentences).map((sentence) => sentence.category)),
+    ],
+    [uzyjWlasnejBazy],
+  )
+
   useEffect(() => {
-    let result = [...words]
+    let wynik = [...slowa]
 
-    // Apply category filter
-    if (wordCategoryFilter !== "all") {
-      result = result.filter((word) => word.category === wordCategoryFilter)
+    if (kategoriaSlowa !== "all") {
+      wynik = wynik.filter((slowo) => slowo.category === kategoriaSlowa)
     }
 
-    // Apply search filter
-    if (wordSearchQuery) {
-      const query = wordSearchQuery.toLowerCase()
-      result = result.filter(
-        (word) => word.germanWord.toLowerCase().includes(query) || word.polishTranslation.toLowerCase().includes(query),
-      )
+    if (wyszukiwanieSlowa) {
+      const zapytanie = wyszukiwanieSlowa.toLowerCase()
+      wynik = wynik.filter((slowo) => {
+        const sourceField =
+          uzyjWlasnejBazy && jezykBazy === "en"
+            ? slowo.englishTranslation.toLowerCase()
+            : slowo.germanWord.toLowerCase()
+        return sourceField.includes(zapytanie) || slowo.polishTranslation.toLowerCase().includes(zapytanie)
+      })
     }
 
-    // Apply sorting
-    result.sort((a, b) => {
-      const fieldA = a[wordSortField].toLowerCase()
-      const fieldB = b[wordSortField].toLowerCase()
+    wynik.sort((a, b) => {
+      let poleA, poleB
 
-      if (wordSortDirection === "asc") {
-        return fieldA.localeCompare(fieldB)
+      if (sortowanieSlowa === "germanWord") {
+        poleA = uzyjWlasnejBazy && jezykBazy === "en" ? a.englishTranslation.toLowerCase() : a.germanWord.toLowerCase()
+        poleB = uzyjWlasnejBazy && jezykBazy === "en" ? b.englishTranslation.toLowerCase() : b.germanWord.toLowerCase()
       } else {
-        return fieldB.localeCompare(fieldA)
+        poleA = a[sortowanieSlowa].toLowerCase()
+        poleB = b[sortowanieSlowa].toLowerCase()
+      }
+
+      if (kierunekSortowaniaSlowa === "asc") {
+        return poleA.localeCompare(poleB)
+      } else {
+        return poleB.localeCompare(poleA)
       }
     })
 
-    setFilteredWords(result)
-  }, [words, wordSearchQuery, wordSortField, wordSortDirection, wordCategoryFilter])
+    setPrzefiltrowaneSłowa(wynik)
+  }, [slowa, wyszukiwanieSlowa, sortowanieSlowa, kierunekSortowaniaSlowa, kategoriaSlowa, uzyjWlasnejBazy, jezykBazy])
 
-  // Filter and sort sentences
   useEffect(() => {
-    let result = [...sentences]
+    let wynik = [...zdania]
 
-    // Apply category filter
-    if (sentenceCategoryFilter !== "all") {
-      result = result.filter((sentence) => sentence.category === sentenceCategoryFilter)
+    if (kategoriaZdania !== "all") {
+      wynik = wynik.filter((zdanie) => zdanie.category === kategoriaZdania)
     }
 
-    // Apply search filter
-    if (sentenceSearchQuery) {
-      const query = sentenceSearchQuery.toLowerCase()
-      result = result.filter(
-        (sentence) =>
-          sentence.germanSentence.toLowerCase().includes(query) ||
-          sentence.polishTranslation.toLowerCase().includes(query),
+    if (wyszukiwanieZdania) {
+      const zapytanie = wyszukiwanieZdania.toLowerCase()
+      wynik = wynik.filter(
+        (zdanie) =>
+          zdanie.germanSentence.toLowerCase().includes(zapytanie) ||
+          zdanie.polishTranslation.toLowerCase().includes(zapytanie),
       )
     }
 
-    // Apply sorting
-    result.sort((a, b) => {
-      const fieldA = a[sentenceSortField].toLowerCase()
-      const fieldB = b[sentenceSortField].toLowerCase()
+    wynik.sort((a, b) => {
+      const poleA = a[sortowanieZdania].toLowerCase()
+      const poleB = b[sortowanieZdania].toLowerCase()
 
-      if (sentenceSortDirection === "asc") {
-        return fieldA.localeCompare(fieldB)
+      if (kierunekSortowaniaZdania === "asc") {
+        return poleA.localeCompare(poleB)
       } else {
-        return fieldB.localeCompare(fieldA)
+        return poleB.localeCompare(poleA)
       }
     })
 
-    setFilteredSentences(result)
-  }, [sentences, sentenceSearchQuery, sentenceSortField, sentenceSortDirection, sentenceCategoryFilter])
+    setPrzefiltrowanZdania(wynik)
+  }, [zdania, wyszukiwanieZdania, sortowanieZdania, kierunekSortowaniaZdania, kategoriaZdania])
 
-  const toggleWordSortDirection = () => {
-    setWordSortDirection(wordSortDirection === "asc" ? "desc" : "asc")
+  const przelaczKierunekSortowaniaSlowa = () => {
+    setKierunekSortowaniaSlowa(kierunekSortowaniaSlowa === "asc" ? "desc" : "asc")
   }
 
-  const toggleSentenceSortDirection = () => {
-    setSentenceSortDirection(sentenceSortDirection === "asc" ? "desc" : "asc")
+  const przelaczKierunekSortowaniaZdania = () => {
+    setKierunekSortowaniaZdania(kierunekSortowaniaZdania === "asc" ? "desc" : "asc")
+  }
+
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  }
+
+  const item = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 },
   }
 
   return (
-    <div className="container max-w-6xl mx-auto py-10 px-4">
-      <h1 className="text-3xl font-bold mb-8">Materiały do nauki</h1>
+    <motion.div
+      className="container max-w-6xl mx-auto py-10 px-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.h1
+        className="text-3xl font-bold mb-8"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        Materiały do nauki
+      </motion.h1>
 
       <Tabs defaultValue="words" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-8">
+        <TabsList className="grid w-full grid-cols-3 mb-8">
           <TabsTrigger value="words" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
-            Słowa ({filteredWords.length})
+            Słowa ({przefiltrowaneSłowa.length})
           </TabsTrigger>
-          <TabsTrigger value="sentences" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Zdania ({filteredSentences.length})
+          {maSentences && (
+            <TabsTrigger value="sentences" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Zdania ({przefiltrowanZdania.length})
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="flashcards" className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            Fiszki
           </TabsTrigger>
         </TabsList>
 
-        {/* Words Tab */}
         <TabsContent value="words">
-          <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Search */}
+          <motion.div className="flex flex-col gap-6" variants={container} initial="hidden" animate="show">
+            <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
                   placeholder="Szukaj słów..."
                   className="pl-8"
-                  value={wordSearchQuery}
-                  onChange={(e) => setWordSearchQuery(e.target.value)}
+                  value={wyszukiwanieSlowa}
+                  onChange={(e) => setWyszukiwanieSlowa(e.target.value)}
                 />
               </div>
 
-              {/* Category filter */}
               <div>
-                <Select value={wordCategoryFilter} onValueChange={setWordCategoryFilter}>
+                <Select value={kategoriaSlowa} onValueChange={setKategoriaSlowa}>
                   <SelectTrigger>
                     <SelectValue placeholder="Wybierz kategorię" />
                   </SelectTrigger>
                   <SelectContent>
-                    {wordCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category === "all" ? "Wszystkie kategorie" : category}
+                    {kategorieSlowa.map((kategoria) => (
+                      <SelectItem key={kategoria} value={kategoria}>
+                        {kategoria === "all" ? "Wszystkie kategorie" : kategoria}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Sort options */}
               <div className="flex gap-2">
-                <Select value={wordSortField} onValueChange={(value: any) => setWordSortField(value)}>
+                <Select value={sortowanieSlowa} onValueChange={(value: any) => setSortowanieSlowa(value)}>
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Sortuj według" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="germanWord">Słowo niemieckie</SelectItem>
+                    <SelectItem value="germanWord">
+                      {uzyjWlasnejBazy && jezykBazy === "en" ? "Słowo angielskie" : "Słowo niemieckie"}
+                    </SelectItem>
                     <SelectItem value="polishTranslation">Tłumaczenie polskie</SelectItem>
                     <SelectItem value="category">Kategoria</SelectItem>
                     <SelectItem value="difficulty">Trudność</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" onClick={toggleWordSortDirection}>
-                  {wordSortDirection === "asc" ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                <Button variant="outline" size="icon" onClick={przelaczKierunekSortowaniaSlowa}>
+                  {kierunekSortowaniaSlowa === "asc" ? (
+                    <SortAsc className="h-4 w-4" />
+                  ) : (
+                    <SortDesc className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
-            </div>
+            </motion.div>
 
-            {/* Words list */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredWords.map((word) => (
-                <Card key={word.id} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="font-medium text-lg">{word.germanWord}</div>
-                      <div className="text-xs px-2 py-1 rounded-full bg-muted">
-                        {word.difficulty === "easy" ? "łatwy" : word.difficulty === "medium" ? "średni" : "trudny"}
+            <motion.div variants={container} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {przefiltrowaneSłowa.map((slowo) => (
+                <motion.div key={slowo.id} variants={item}>
+                  <Card className="overflow-hidden hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-medium text-lg">
+                          {uzyjWlasnejBazy && jezykBazy === "en" ? slowo.englishTranslation : slowo.germanWord}
+                        </div>
+                        <div className="text-xs px-2 py-1 rounded-full bg-muted">
+                          {slowo.difficulty === "easy" ? "łatwy" : slowo.difficulty === "medium" ? "średni" : "trudny"}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-muted-foreground">{word.polishTranslation}</div>
-                    <div className="mt-2 text-xs text-muted-foreground">Kategoria: {word.category}</div>
-                  </CardContent>
-                </Card>
+                      <div className="text-muted-foreground">{slowo.polishTranslation}</div>
+                      <div className="mt-2 text-xs text-muted-foreground">Kategoria: {slowo.category}</div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
 
-            {filteredWords.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
+            {przefiltrowaneSłowa.length === 0 && (
+              <motion.div
+                className="text-center py-8 text-muted-foreground"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
                 Nie znaleziono słów pasujących do kryteriów wyszukiwania.
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         </TabsContent>
 
-        {/* Sentences Tab */}
         <TabsContent value="sentences">
-          <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Search */}
+          <motion.div className="flex flex-col gap-6" variants={container} initial="hidden" animate="show">
+            <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
                   placeholder="Szukaj zdań..."
                   className="pl-8"
-                  value={sentenceSearchQuery}
-                  onChange={(e) => setSentenceSearchQuery(e.target.value)}
+                  value={wyszukiwanieZdania}
+                  onChange={(e) => setWyszukiwanieZdania(e.target.value)}
                 />
               </div>
 
-              {/* Category filter */}
               <div>
-                <Select value={sentenceCategoryFilter} onValueChange={setSentenceCategoryFilter}>
+                <Select value={kategoriaZdania} onValueChange={setKategoriaZdania}>
                   <SelectTrigger>
                     <SelectValue placeholder="Wybierz kategorię" />
                   </SelectTrigger>
                   <SelectContent>
-                    {sentenceCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category === "all" ? "Wszystkie kategorie" : category}
+                    {kategorieZdania.map((kategoria) => (
+                      <SelectItem key={kategoria} value={kategoria}>
+                        {kategoria === "all" ? "Wszystkie kategorie" : kategoria}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Sort options */}
               <div className="flex gap-2">
-                <Select value={sentenceSortField} onValueChange={(value: any) => setSentenceSortField(value)}>
+                <Select value={sortowanieZdania} onValueChange={(value: any) => setSortowanieZdania(value)}>
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Sortuj według" />
                   </SelectTrigger>
@@ -253,43 +334,57 @@ export default function LearnPage() {
                     <SelectItem value="difficulty">Trudność</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" onClick={toggleSentenceSortDirection}>
-                  {sentenceSortDirection === "asc" ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                <Button variant="outline" size="icon" onClick={przelaczKierunekSortowaniaZdania}>
+                  {kierunekSortowaniaZdania === "asc" ? (
+                    <SortAsc className="h-4 w-4" />
+                  ) : (
+                    <SortDesc className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
-            </div>
+            </motion.div>
 
-            {/* Sentences list */}
-            <div className="grid grid-cols-1 gap-4">
-              {filteredSentences.map((sentence) => (
-                <Card key={sentence.id} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="font-medium">{sentence.germanSentence}</div>
-                      <div className="text-xs px-2 py-1 rounded-full bg-muted ml-2 shrink-0">
-                        {sentence.difficulty === "easy"
-                          ? "łatwy"
-                          : sentence.difficulty === "medium"
-                            ? "średni"
-                            : "trudny"}
+            <motion.div variants={container} className="grid grid-cols-1 gap-4">
+              {przefiltrowanZdania.map((zdanie) => (
+                <motion.div key={zdanie.id} variants={item}>
+                  <Card className="overflow-hidden hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="font-medium">{zdanie.germanSentence}</div>
+                        <div className="text-xs px-2 py-1 rounded-full bg-muted ml-2 shrink-0">
+                          {zdanie.difficulty === "easy"
+                            ? "łatwy"
+                            : zdanie.difficulty === "medium"
+                              ? "średni"
+                              : "trudny"}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-muted-foreground">{sentence.polishTranslation}</div>
-                    <div className="mt-2 text-xs text-muted-foreground">Kategoria: {sentence.category}</div>
-                  </CardContent>
-                </Card>
+                      <div className="text-muted-foreground">{zdanie.polishTranslation}</div>
+                      <div className="mt-2 text-xs text-muted-foreground">Kategoria: {zdanie.category}</div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
 
-            {filteredSentences.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
+            {przefiltrowanZdania.length === 0 && (
+              <motion.div
+                className="text-center py-8 text-muted-foreground"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
                 Nie znaleziono zdań pasujących do kryteriów wyszukiwania.
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="flashcards">
+          <Flashcards />
         </TabsContent>
       </Tabs>
-    </div>
+    </motion.div>
   )
 }
 
